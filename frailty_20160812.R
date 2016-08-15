@@ -6,7 +6,7 @@ library(survival)
 
 #---DATA GENERATION---
 
-n=1000
+n=20
 m=2
 eta.true=1
 alpha0.true=1.8
