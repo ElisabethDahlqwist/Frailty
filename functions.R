@@ -19,10 +19,90 @@ XX <- X[rep(1:nrow(X), nbeta), ]
 XXX <- c(X)*XX
 clusterid_rep <- rep(clusterid, nbeta)
 nbeta_rep <- sort(rep(1:nbeta, nrow(X)))
-data_rep <- data.table(XXX,clusterid_rep, nbeta_rep)
-data_rep <- as.matrix(data_rep[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid_rep)])
+data_rep <- data.table(clusterid_rep, nbeta_rep, XXX)
+data_rep <- as.matrix(data_rep)
+
+###############
+H <- (t/alpha)^eta*exp(B) 
+Hstar <- (tstar/alpha)^eta*exp(B)
+H_X <- temp(H * X)
+Hstar_X <- temp(Hstar * X)
+Hstar_first <- data.table(clusterid_rep, nbeta_rep, Hstar * data_rep[, 3:(nbeta+2)])
+H_first <- data.table(clusterid_rep, nbeta_rep, H * data_rep[, 3:(nbeta+2)])
+
+H <- temp(H)
+Hstar <- temp(Hstar)
+Hstar_second <- theta * Hstar_X^2 / (1 + theta * Hstar)^2
+H_second <- (1+d*theta) * H_X^2 / (1 + theta * H)^2
+
+data_rep_Hstar <- data.table(clusterid_rep, nbeta_rep, Hstar_first)
+data_aggr_Hstar <- as.matrix(data_rep_Hstar[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid_rep)])
+
+data_rep_H <- data.table(clusterid_rep, nbeta_rep, H_first)
+data_aggr_H <- as.matrix(data_rep_H[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid_rep)])
+
+Hstar_first <- data_aggr_Hstar[, -1:-2] / (1 + theta * Hstar)
+H_first <- (theta^(-1) + d) * data_aggr_H[, -1:-2] / (1 + theta * H)
+
+
 data_new <- matrix(c(data_rep[, 1], data_rep[, 2], H * data_rep[, 3:(nbeta+2)]), ncol = (nbeta+2), byrow=F)
 
+######################################
+
+B <- as.vector(X%*%beta)
+XX <- c(X)*X[rep(1:nrow(X), nbeta), ]
+h.eta <- delta*(1+eta*(log(t)-log(alpha)))
+H <- (t/alpha)^eta*exp(B) 
+Hstar <- (tstar/alpha)^eta*exp(B)
+H.eta <- eta*log(t/alpha)*H 
+Hstar.eta <- eta*log(tstar/alpha)*Hstar
+Hstar.eta[tstar==0] <- 0
+H.eta.eta <- H.eta+eta^2*(log(t/alpha))^2*H 
+Hstar.eta.eta <- Hstar.eta+eta^2*(log(tstar/alpha))^2*Hstar
+Hstar.eta.eta[tstar==0] <- 0
+H.eta.beta <- eta*log(t/alpha)*(H*X)
+Hstar.eta.beta <- eta*log(tstar/alpha)*(Hstar*X)
+Hstar.eta.beta[tstar==0] <- 0
+H.beta <- cbind(H[rep(1:length(H), nbeta)]*XX, clusterid)
+#dim(H.beta) <- c(nrow(X), nbeta+1, nbeta)
+Hstar.beta <- cbind(Hstar[rep(1:length(H), nbeta)]*XX, clusterid)
+H.beta.beta <- H*X^2
+Hstar.beta.beta <- Hstar*X #was "Hstar*X" but shouldnt it be "Hstar*X^2"?
+
+# Aggregate
+h.eta <- temp(h.eta)
+H <- temp(H)
+Hstar <- temp(Hstar)
+H.eta <- temp(H.eta)
+Hstar.eta <- temp(Hstar.eta)
+H.eta.eta <- temp(H.eta.eta)
+Hstar.eta.eta <- temp(Hstar.eta.eta)
+H.eta.beta <- temp(H.eta.beta)
+Hstar.eta.beta <- temp(Hstar.eta.beta)
+H.beta <- temp(H.beta)
+Hstar.beta <- temp(Hstar.beta)
+H.beta.beta <- temp(H.beta.beta)
+Hstar.beta.beta <- temp(Hstar.beta.beta)
+
+h.alpha.alpha <- 0
+h.alpha.eta <- -d*eta
+h.eta.eta <- h.eta-d
+H.alpha <- -eta*H
+Hstar.alpha <- -eta*Hstar
+H.alpha.alpha <- eta^2*H
+Hstar.alpha.alpha <- eta^2*Hstar  
+H.alpha.eta <- -eta*(H+H.eta)
+Hstar.alpha.eta <- -eta*(Hstar+Hstar.eta)
+H.alpha.beta <- -eta*H.beta
+Hstar.alpha.beta <- -eta*Hstar.beta
+
+dl.dbeta.dbeta <- -t(colMeans(Hstar.beta.beta/(1+theta*Hstar)-
+                                theta*(Hstar.beta/(1+theta*Hstar))^2-(1+theta*d)*
+                                (H.beta.beta/(1+theta*H)-theta*(H.beta/(1+theta*H))^2)))
+
+dl.dbeta <- cbind(t(dl.dalpha.dbeta), t(dl.deta.dbeta), t(dl.dtheta.dbeta))
+
+hessian <- rbind(dl.dalpha, dl.deta, dl.dtheta, dl.dbeta)
 
 ################ old stuff
 
