@@ -251,7 +251,6 @@ frailty_model <- function(formula, data, logp, clusterid){
     dl.dtheta <- cbind(dl.dalpha.dtheta, dl.deta.dtheta, dl.dtheta.dtheta, dl.dtheta.dbeta)
     
     # Hessian, derivative of gradient of beta with respect to all parameters
-    ###############
     H <- (t/alpha)^eta*exp(B) 
     Hstar <- (tstar/alpha)^eta*exp(B)
     XX <- c(X)*X[rep(1:nrow(X), nbeta), ]
@@ -283,21 +282,19 @@ frailty_model <- function(formula, data, logp, clusterid){
     H_first <- theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H)
     
     
-    dl.dbeta.dbeta <- data_Hstar_aggr[, -1:-2] / (1 + theta * Hstar) - theta * Hstar_Xsqr / (1 + theta * Hstar)^2
-    - theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H) + theta * (1+d*theta) * H_Xsqr / (1 + theta * H)^2
+    dl.dbeta.dbeta <- data_Hstar_aggr[, -1:-2] / (1 + theta * Hstar) - theta * Hstar_Xsqr / (1 + theta * Hstar)^2 - theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H) + theta * (1+d*theta) * H_Xsqr / (1 + theta * H)^2
     
     ## aggregate over clusters
     
     nbeta_rep2 <- rep(1:nbeta, each = length(H))
     dl.dbeta.dbeta <- data.table(nbeta_rep2, dl.dbeta.dbeta)
     dl.dbeta.dbeta <- as.matrix(dl.dbeta.dbeta[, j = lapply(.SD, sum), by = .(nbeta_rep2)])[, -1]
-    dl.dbeta.dbeta
     
     #dl.dbeta.dbeta <- -t(colMeans(Hstar.beta.beta/(1+theta*Hstar)-
                                    # theta*(Hstar.beta/(1+theta*Hstar))^2-(1+theta*d)*
                                    # (H.beta.beta/(1+theta*H)-theta*(H.beta/(1+theta*H))^2)))
     
-    dl.dbeta <- cbind(t(dl.dalpha.dbeta), t(dl.deta.dbeta), t(dl.dtheta.dbeta))
+    dl.dbeta <- cbind(t(dl.dalpha.dbeta), t(dl.deta.dbeta), t(dl.dtheta.dbeta), dl.dbeta.dbeta)
     
     hessian <- rbind(dl.dalpha, dl.deta, dl.dtheta, dl.dbeta)
     
@@ -311,9 +308,9 @@ frailty_model <- function(formula, data, logp, clusterid){
   fit=optim(par=logp,fn=like,gr=gradientfunc,method="BFGS",hessian=FALSE)
   par <- fit$par
   score <- gradientfunc(par, score=TRUE)
-  
+  hessian <- hessianfunc(par)
   #### Output ####
-  out <- c(list(par = par, score = score))
+  out <- c(list(par = par, score = score, hessian = hessian))
   class(out) <- "frailty_model"
   return(out)
   
