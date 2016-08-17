@@ -4,6 +4,11 @@ a <- c(1,2)
 bb <- b[rep(1:nrow(b), ncol(b)), ]
 bbb <- c(b)*bb
 
+
+
+
+
+
 idd <- c(1,1,2,2)
 iddd <- rep(idd, ncol(b))
 par_rep <- sort(rep(1:ncol(b), nrow(b)))
@@ -11,41 +16,47 @@ temp <- data.table(bbb,iddd, par_rep)
 temp <- as.matrix(temp[, j = lapply(.SD, sum), by = .(par_rep, iddd)])[, -1]
 data1 <- matrix(c(temp[, 1], a*temp[,2:(ncol(b)+1)]), ncol=3, nrow=nrow(b))
 
-
-
-#aggregate
-
-XX <- X[rep(1:nrow(X), nbeta), ]
-XXX <- c(X)*XX
-clusterid_rep <- rep(clusterid, nbeta)
-nbeta_rep <- sort(rep(1:nbeta, nrow(X)))
-data_rep <- data.table(clusterid_rep, nbeta_rep, XXX)
-data_rep <- as.matrix(data_rep)
-
 ###############
 H <- (t/alpha)^eta*exp(B) 
 Hstar <- (tstar/alpha)^eta*exp(B)
+XX <- c(X)*X[rep(1:nrow(X), nbeta), ]
+nbeta_rep <- rep(1:nbeta, each = nrow(X))
+#clusterid_rep <- rep(clusterid, nbeta)
+
+H <- (t/alpha)^eta*exp(B) 
+Hstar <- (tstar/alpha)^eta*exp(B)
 H_X <- temp(H * X)
+H_Xsqr <- H_X[rep(1:nrow(H_X), nbeta), ] * c(H_X)
 Hstar_X <- temp(Hstar * X)
-Hstar_first <- data.table(clusterid_rep, nbeta_rep, Hstar * data_rep[, 3:(nbeta+2)])
-H_first <- data.table(clusterid_rep, nbeta_rep, H * data_rep[, 3:(nbeta+2)])
+Hstar_Xsqr <- Hstar_X[rep(1:nrow(H_X), nbeta), ] * c(Hstar_X)
+
+Hstar_first <- data.table(clusterid, nbeta_rep, Hstar * XX)
+H_first <- data.table(clusterid, nbeta_rep, H * XX)
 
 H <- temp(H)
 Hstar <- temp(Hstar)
-Hstar_second <- theta * Hstar_X^2 / (1 + theta * Hstar)^2
-H_second <- (1+d*theta) * H_X^2 / (1 + theta * H)^2
+Hstar_second <- theta * Hstar_Xsqr / (1 + theta * Hstar)^2
+H_second <- theta * (1+d*theta) * H_Xsqr / (1 + theta * H)^2
 
-data_rep_Hstar <- data.table(clusterid_rep, nbeta_rep, Hstar_first)
-data_aggr_Hstar <- as.matrix(data_rep_Hstar[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid_rep)])
+data_Hstar <- data.table(clusterid, nbeta_rep, Hstar_first)
+data_Hstar_aggr <- as.matrix(data_Hstar[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])
 
-data_rep_H <- data.table(clusterid_rep, nbeta_rep, H_first)
-data_aggr_H <- as.matrix(data_rep_H[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid_rep)])
+data_H <- data.table(clusterid, nbeta_rep, H_first)
+data_H_aggr <- as.matrix(data_H[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])
 
-Hstar_first <- data_aggr_Hstar[, -1:-2] / (1 + theta * Hstar)
-H_first <- (theta^(-1) + d) * data_aggr_H[, -1:-2] / (1 + theta * H)
+Hstar_first <- data_Hstar_aggr[, -1:-2] / (1 + theta * Hstar)
+H_first <- theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H)
 
 
-data_new <- matrix(c(data_rep[, 1], data_rep[, 2], H * data_rep[, 3:(nbeta+2)]), ncol = (nbeta+2), byrow=F)
+dl.dbeta.dbeta <- data_Hstar_aggr[, -1:-2] / (1 + theta * Hstar) - theta * Hstar_Xsqr / (1 + theta * Hstar)^2
+- theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H) + theta * (1+d*theta) * H_Xsqr / (1 + theta * H)^2
+
+## aggregate over clusters
+
+nbeta_rep2 <- rep(1:nbeta, each = length(H))
+dl.dbeta.dbeta <- data.table(nbeta_rep2, dl.dbeta.dbeta)
+dl.dbeta.dbeta <- as.matrix(dl.dbeta.dbeta[, j = lapply(.SD, sum), by = .(nbeta_rep2)])[, -1]
+dl.dbeta.dbeta
 
 ######################################
 
