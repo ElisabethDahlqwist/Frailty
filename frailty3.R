@@ -253,16 +253,16 @@ print("analytic hessian")
 print(hessian)
 
 #-- New code
+data <- data.frame(t, tstar, delta, x,id)
 logp <- c(log(alpha0.true),log(eta.true),log(theta.true),beta.true)
-
 formula <- Surv(tstar, t, delta) ~ x
 clusterid<-"id"
+
 
 print("true")
 print(logp)
 print("with grad")
 estimates<-frailty_model(formula, data, logp, clusterid="id")
-
 estimates
 
 
