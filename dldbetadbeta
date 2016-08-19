@@ -1,0 +1,40 @@
+# Hessian, derivative of gradient of beta with respect to all parameters
+H <- (t/alpha)^eta*exp(B) 
+Hstar <- (tstar/alpha)^eta*exp(B)
+XX <- c(X)*X[rep(1:nrow(X), nbeta), ]
+nbeta_rep <- rep(1:nbeta, each = nrow(X))
+#clusterid_rep <- rep(clusterid, nbeta)
+
+H_X <- as.matrix(temp(H * X))
+H_Xsqr <- H_X[rep(1:nrow(H_X), nbeta), ] * c(H_X)
+Hstar_X <- as.matrix(temp(Hstar * X))
+Hstar_Xsqr <- Hstar_X[rep(1:nrow(Hstar_X), nbeta), ] * c(Hstar_X)
+
+Hstar_first <- data.table(clusterid, nbeta_rep, Hstar * XX)
+H_first <- data.table(clusterid, nbeta_rep, H * XX)
+
+H <- temp(H)
+Hstar <- temp(Hstar)
+Hstar_second <- theta * Hstar_Xsqr / (1 + theta * Hstar)^2
+H_second <- theta * (1+d*theta) * H_Xsqr / (1 + theta * H)^2
+
+data_Hstar <- data.table(clusterid, nbeta_rep, Hstar_first)
+data_Hstar_aggr <- as.matrix(data_Hstar[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])
+
+data_H <- data.table(clusterid, nbeta_rep, H_first)
+data_H_aggr <- as.matrix(data_H[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])
+
+Hstar_first <- data_Hstar_aggr[, -1:-2] / (1 + theta * Hstar)
+H_first <- theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H)
+
+dl.dbeta.dbeta <- data_Hstar_aggr[, -1:-2] / (1 + theta * Hstar) - theta * Hstar_Xsqr / (1 + theta * Hstar)^2 - theta * (1 + d * theta) * data_H_aggr[, -1:-2] / (1 + theta * H) + theta * (1+d*theta) * H_Xsqr / (1 + theta * H)^2
+
+## aggregate over clusters
+
+nbeta_rep2 <- rep(1:nbeta, each = length(H))
+dl.dbeta.dbeta <- data.table(nbeta_rep2, dl.dbeta.dbeta)
+dl.dbeta.dbeta <- as.matrix(dl.dbeta.dbeta[, j = lapply(.SD, sum), by = .(nbeta_rep2)])[, -1]
+
+#dl.dbeta.dbeta <- -t(colMeans(Hstar.beta.beta/(1+theta*Hstar)-
+# theta*(Hstar.beta/(1+theta*Hstar))^2-(1+theta*d)*
+# (H.beta.beta/(1+theta*H)-theta*(H.beta/(1+theta*H))^2)))

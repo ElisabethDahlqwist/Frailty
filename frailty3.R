@@ -2,6 +2,7 @@ rm(list=ls())
 library(data.table)
 library(tictoc)
 library(numDeriv)
+library(survival)
 
 #---DATA GENERATION---
 
@@ -96,7 +97,7 @@ gradientfunc <- function(logp){
   Hstar.eta <- temp$Hstar.eta
   H.beta <- temp$H.beta
   Hstar.beta <- temp$Hstar.beta
-  
+
   Hstar.alpha <- -eta*Hstar  
   K <- H/(1+theta*H)
   Kstar <- Hstar/(1+theta*Hstar)
@@ -107,11 +108,14 @@ gradientfunc <- function(logp){
   dl.dtheta <- G.theta+1/theta*(log(1+theta*H)-log(1+theta*Hstar))+Kstar-
     (1+d*theta)*K
   dl.dbeta <- h.beta+Hstar.beta/(1+theta*Hstar)-(1+theta*d)*H.beta/(1+theta*H)
+
   
   gradient <- -c(mean(dl.dalpha),mean(dl.deta),mean(dl.dtheta),mean(dl.dbeta)) 
   names(gradient) <- c("logalpha","logeta","logtheta","beta") 
   
-  return(gradient)
+  score <- -cbind(dl.dalpha, dl.deta, dl.dtheta, dl.dbeta) 
+
+  return(list (gradient=gradient, score=score))
 
 }
 
@@ -205,10 +209,21 @@ hessianfunc <- function(logp){
   dl.dtheta.dbeta <- mean(theta*(-Hstar.beta*Hstar/(1+theta*Hstar)^2+
     H.beta*H/(1+theta*H)^2-d*(H.beta/(1+theta*H)-
     theta*H.beta*H/(1+theta*H)^2)))
-  dl.dbeta.dbeta <- mean(Hstar.beta.beta/(1+theta*Hstar)-
+ 
+ dl.dbeta.dbeta <- mean(Hstar.beta.beta/(1+theta*Hstar)-
     theta*(Hstar.beta/(1+theta*Hstar))^2-(1+theta*d)*
     (H.beta.beta/(1+theta*H)-theta*(H.beta/(1+theta*H))^2))
-  
+
+ test6 <- matrix(c(
+            Hstar.beta.beta,
+            Hstar.beta^2,
+            Hstar,
+            H.beta.beta,
+            H.beta^2,
+            H,
+            theta*d), ncol=7)
+
+
   hessian[1,1] <- -dl.dalpha.dalpha  
   hessian[1,2] <- -dl.dalpha.deta 
   hessian[1,3] <- -dl.dalpha.dtheta
@@ -257,6 +272,7 @@ data <- data.frame(t, tstar, delta, x,id)
 logp <- c(log(alpha0.true),log(eta.true),log(theta.true),beta.true)
 formula <- Surv(tstar, t, delta) ~ x
 clusterid<-"id"
+
 
 
 print("true")
