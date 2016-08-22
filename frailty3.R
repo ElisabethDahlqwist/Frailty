@@ -108,14 +108,14 @@ gradientfunc <- function(logp){
   dl.dtheta <- G.theta+1/theta*(log(1+theta*H)-log(1+theta*Hstar))+Kstar-
     (1+d*theta)*K
   dl.dbeta <- h.beta+Hstar.beta/(1+theta*Hstar)-(1+theta*d)*H.beta/(1+theta*H)
-
   
+  #gradient1 <- -c(mean(dl.dalpha),mean(dl.deta),mean(dl.dtheta),mean(dl.dbeta))
   gradient <- -c(mean(dl.dalpha),mean(dl.deta),mean(dl.dtheta),mean(dl.dbeta)) 
   names(gradient) <- c("logalpha","logeta","logtheta","beta") 
   
   score <- -cbind(dl.dalpha, dl.deta, dl.dtheta, dl.dbeta) 
 
-  return(list (gradient=gradient, score=score))
+  return(gradient=gradient)
 
 }
 
@@ -214,16 +214,6 @@ hessianfunc <- function(logp){
     theta*(Hstar.beta/(1+theta*Hstar))^2-(1+theta*d)*
     (H.beta.beta/(1+theta*H)-theta*(H.beta/(1+theta*H))^2))
 
- test6 <- matrix(c(
-            Hstar.beta.beta,
-            Hstar.beta^2,
-            Hstar,
-            H.beta.beta,
-            H.beta^2,
-            H,
-            theta*d), ncol=7)
-
-
   hessian[1,1] <- -dl.dalpha.dalpha  
   hessian[1,2] <- -dl.dalpha.deta 
   hessian[1,3] <- -dl.dalpha.dtheta
@@ -250,20 +240,22 @@ logp <- c(log(alpha0.true),log(eta.true),log(theta.true),beta.true)
 print("true parameter values")
 print(logp)
 
-fit=optim(par=logp,fn=like,gr=gradientfunc,method="BFGS",hessian=FALSE)  
+fit=optim(par=logp,fn=like,gr=gradientfunc,method="BFGS",hessian=FALSE) 
+#fit <- optim(par=logp, fn=like, method="BFGS", hessian=FALSE)
 print("optim with gradient")
 print(fit$par)
 
-gradient <- gradientfunc(logp) 
+par <- fit$par
+
+gradient <- gradientfunc(par) 
 print("gradient")       
 print(gradient)
 
-numDeriv.hess <- hessian(func=like,x=logp)
+numDeriv.hess <- hessian(func=like,x=par)
 print("numerical hessian")
 print(numDeriv.hess)
 
-
-hessian <- hessianfunc(logp) 
+hessian <- hessianfunc(par) 
 print("analytic hessian")       
 print(hessian)
 
@@ -273,15 +265,30 @@ logp <- c(log(alpha0.true),log(eta.true),log(theta.true),beta.true)
 formula <- Surv(tstar, t, delta) ~ x
 clusterid<-"id"
 
-
-
 print("true")
 print(logp)
 print("with grad")
 estimates<-frailty_model(formula, data, logp, clusterid="id")
 estimates
 
+estimates$hessian == hessian
 
-
+test1 <- matrix(c(H,
+                  Hstar,
+                  h.alpha,
+                  h.eta,
+                  h.beta,
+                  H,
+                  Hstar,
+                  H.alpha,
+                  H.eta,
+                  Hstar.eta,
+                  H.beta,
+                  Hstar.beta,
+                  Hstar.alpha,  
+                  K,
+                  Kstar,
+                  G.theta
+), ncol= 16 )
 
 

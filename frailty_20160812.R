@@ -89,7 +89,7 @@ frailty_model <- function(formula, data, logp, clusterid){
     return(ll)
   }
   
-  # the function temp aggregate the data table x by cluster id
+  # The function "temp" aggregate the data table x by cluster id
   temp <- function(x){
     temp <- data.table(x)
     temp <- as.matrix(temp[, j = lapply(.SD, sum), by = clusterid])[, -1]
@@ -132,7 +132,7 @@ frailty_model <- function(formula, data, logp, clusterid){
     K <- H/(1+theta*H)
     Kstar <- Hstar/(1+theta*Hstar)
     G.theta <- d-cumsum(c(0,1/(1+theta*j)))[d+1]
-    
+  
     # Second derivatives of the log-likelihood
     dl.dalpha <- h.alpha+Hstar.alpha/(1+theta*Hstar)-(1+theta*d)*H.alpha/(1+theta*H)
     dl.deta <- h.eta+Hstar.eta/(1+theta*Hstar)-(1+theta*d)*H.eta/(1+theta*H)
@@ -145,7 +145,7 @@ frailty_model <- function(formula, data, logp, clusterid){
     # Score function for all parameters and individuals
     if(score == TRUE){
       score <- -cbind(dl.dalpha, dl.deta, dl.dtheta, dl.dbeta) 
-      return(list(gradient=gradient, score=score))
+      return(score=score)
     }
     else {return(gradient)}
     #names(gradient) <- c("logalpha","logeta","logtheta","beta") 
@@ -174,10 +174,7 @@ frailty_model <- function(formula, data, logp, clusterid){
     Hstar.eta.beta <- eta*log(tstar/alpha)*(Hstar*X)
     Hstar.eta.beta[tstar==0] <- 0
     H.beta <- cbind(H[rep(1:length(H), nbeta)]*XX, clusterid)
-    #dim(H.beta) <- c(nrow(X), nbeta+1, nbeta)
     Hstar.beta <- cbind(Hstar[rep(1:length(H), nbeta)]*XX, clusterid)
-    H.beta.beta <- H*X^2
-    Hstar.beta.beta <- Hstar*X #was "Hstar*X" but shouldnt it be "Hstar*X^2"?
     
     # Aggregate
     h.eta <- temp(h.eta)
@@ -189,10 +186,6 @@ frailty_model <- function(formula, data, logp, clusterid){
     Hstar.eta.eta <- temp(Hstar.eta.eta)
     H.eta.beta <- temp(H.eta.beta)
     Hstar.eta.beta <- temp(Hstar.eta.beta)
-    H.beta <- temp(H.beta)
-    Hstar.beta <- temp(Hstar.beta)
-    H.beta.beta <- temp(H.beta.beta)
-    Hstar.beta.beta <- temp(Hstar.beta.beta)
     
     h.alpha.alpha <- 0
     h.alpha.eta <- -d*eta
@@ -203,14 +196,12 @@ frailty_model <- function(formula, data, logp, clusterid){
     Hstar.alpha.alpha <- eta^2*Hstar  
     H.alpha.eta <- -eta*(H+H.eta)
     Hstar.alpha.eta <- -eta*(Hstar+Hstar.eta)
-    H.alpha.beta <- -eta*H.beta
-    Hstar.alpha.beta <- -eta*Hstar.beta
-    
+
     K <- H/(1+theta*H)
     Kstar <- Hstar/(1+theta*Hstar)
     G.theta.theta <- cumsum(c(0,theta*j/(1+theta*j)^2))[d+1]
     
-    # Hessian, derivative of gradient of alpha with respect to all parameters
+    # Hessian, derivative of gradient of alpha with respect to all parameters except beta
     dl.dalpha.dalpha <- -mean(h.alpha.alpha+Hstar.alpha.alpha/(1+theta*Hstar)-
                                 theta*(Hstar.alpha/(1+theta*Hstar))^2-
                                 (1+theta*d)*(H.alpha.alpha/(1+theta*H)-
@@ -221,48 +212,35 @@ frailty_model <- function(formula, data, logp, clusterid){
                                              theta*H.alpha*H.eta/(1+theta*H)^2))  
     dl.dalpha.dtheta <- -mean(theta*(-Hstar.alpha*Hstar/(1+theta*Hstar)^2+
                                        H.alpha*H/(1+theta*H)^2-d*(H.alpha/(1+theta*H)-theta*H.alpha*H/(1+theta*H)^2)))
-    dl.dalpha.dbeta <- -t(colMeans(as.matrix(Hstar.alpha.beta/(1+theta*Hstar)-
-                                     theta*Hstar.alpha*Hstar.beta/(1+theta*Hstar)^2-
-                                     (1+theta*d)*(H.alpha.beta/(1+theta*H)-
-                                                    theta*H.alpha*H.beta/(1+theta*H)^2))))
     
-    dl.dalpha <- cbind(dl.dalpha.dalpha, dl.dalpha.deta, dl.dalpha.dtheta, dl.dalpha.dbeta)
+    dl.dalpha <- cbind(dl.dalpha.dalpha, dl.dalpha.deta, dl.dalpha.dtheta)
     
-    # Hessian, derivative of gradient of eta with respect to all parameters
+    # Hessian, derivative of gradient of eta with respect to all parameters except beta
     dl.deta.deta <- -mean(h.eta.eta+Hstar.eta.eta/(1+theta*Hstar)-
                             theta*(Hstar.eta/(1+theta*Hstar))^2-(1+theta*d)*
                             (H.eta.eta/(1+theta*H)-theta*(H.eta/(1+theta*H))^2))
     dl.deta.dtheta <- -mean(theta*(-Hstar.eta*Hstar/(1+theta*Hstar)^2+
                                      H.eta*H/(1+theta*H)^2-d*(H.eta/(1+theta*H)-
-                                                                theta*H.eta*H/(1+theta*H)^2)))
-    dl.deta.dbeta <- -t(colMeans(as.matrix(Hstar.eta.beta/(1+theta*Hstar)-
-                                   theta*Hstar.eta*Hstar.beta/(1+theta*Hstar)^2-
-                                   (1+theta*d)*(H.eta.beta/(1+theta*H)-
-                                                  theta*H.eta*H.beta/(1+theta*H)^2))))
+                                                  theta*H.eta*H/(1+theta*H)^2)))
     
-    dl.deta <- cbind(dl.dalpha.deta, dl.deta.deta, dl.deta.dtheta, dl.deta.dbeta)
+    dl.deta <- cbind(dl.dalpha.deta, dl.deta.deta, dl.deta.dtheta)
     
-    # Hessian, derivative of gradient of theta with respect to all parameters
+    # Hessian, derivative of gradient of theta with respect to all parameters except beta
     dl.dtheta.dtheta <- -mean(G.theta.theta+1/theta*(log(1+theta*Hstar)-log(1+theta*H))+
                                 K-Kstar+theta*(K^2-Kstar^2)+d*theta*K*(theta*K-1))
-    dl.dtheta.dbeta <- -t(colMeans(as.matrix(theta*(-Hstar.beta*Hstar/(1+theta*Hstar)^2+
-                                            H.beta*H/(1+theta*H)^2-d*(H.beta/(1+theta*H)-
-                                                                        theta*H.beta*H/(1+theta*H)^2)))))
-    
-    dl.dtheta <- cbind(dl.dalpha.dtheta, dl.deta.dtheta, dl.dtheta.dtheta, dl.dtheta.dbeta)
+    dl.dtheta <- cbind(dl.dalpha.dtheta, dl.deta.dtheta, dl.dtheta.dtheta)
     
     # Hessian, derivative of gradient of beta with respect to all parameters
     H <- (t/alpha)^eta*exp(B) 
     Hstar <- (tstar/alpha)^eta*exp(B)
     XX <- c(X)*X[rep(1:nrow(X), nbeta), ]
     nbeta_rep <- rep(1:nbeta, each = nrow(X))
-    #clusterid_rep <- rep(clusterid, nbeta)
     
     ### Creating squared cluster sums of H.beta and Hstar.beta
     H.beta <- as.matrix(temp(H * X))
-    H.beta2 <- H_X[rep(1:nrow(H_X), nbeta), ] * c(H_X)
+    H.beta2 <- H.beta[rep(1:nrow(H.beta), nbeta), ] * c(H.beta)
     Hstar.beta <- as.matrix(temp(Hstar * X))
-    Hstar.beta2 <- Hstar_X[rep(1:nrow(Hstar_X), nbeta), ] * c(Hstar_X)
+    Hstar.beta2 <- Hstar.beta[rep(1:nrow(Hstar.beta), nbeta), ] * c(Hstar.beta)
     
     ### Creating Cross products of covariates multiplied with H and Hstar
     Hstar.beta.beta <- data.table(nbeta_rep, clusterid, Hstar * XX)
@@ -278,7 +256,7 @@ frailty_model <- function(formula, data, logp, clusterid){
     
     ### Aggregate Hstar.beta.beta and H.beta.beta over cluster
     Hstar.beta.beta <- data.table(clusterid, nbeta_rep, Hstar.beta.beta)
-    Hstar.beta.beta <- as.matrix(data_Hstar[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])[, -1:-2, drop=FALSE] # because columns are droped it is no longer a matrix
+    Hstar.beta.beta <- as.matrix(Hstar.beta.beta[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])[, -1:-2, drop=FALSE] # because columns are droped it is no longer a matrix
     
     H.beta.beta <- data.table(clusterid, nbeta_rep, H.beta.beta)
     H.beta.beta <- as.matrix(H.beta.beta[, j = lapply(.SD, sum), by = .(nbeta_rep, clusterid)])[, -1:-2, drop=FALSE] 
@@ -287,20 +265,41 @@ frailty_model <- function(formula, data, logp, clusterid){
     Hstar1 <- Hstar.beta.beta / (1 + theta * Hstar)
     H1 <- (1 + d * theta) * H.beta.beta / (1 + theta * H)
     
-    dl.dbeta.dbeta <- colMeans(Hstar.beta.beta/(1+theta*Hstar)-
-                                 theta*Hstar.beta2/(1+theta*Hstar)^2-(1+theta*d)*
-                                 (H.beta.beta/(1+theta*H)-theta*H.beta2/(1+theta*H)^2))
+    dl.dbeta.dbeta <- -(Hstar.beta.beta/(1+theta*Hstar)-
+                        theta*Hstar.beta2/(1+theta*Hstar)^2-(1+theta*d)*
+                       (H.beta.beta/(1+theta*H)-theta*H.beta2/(1+theta*H)^2))
     
-    ## aggregate over clusters
-    
+    ## Aggregate over clusters
     nbeta_rep2 <- rep(1:nbeta, each = length(H))
     dl.dbeta.dbeta <- data.table(nbeta_rep2, dl.dbeta.dbeta)
-    dl.dbeta.dbeta <- as.matrix(dl.dbeta.dbeta[, j = lapply(.SD, sum), by = .(nbeta_rep2)])[, -1]
+    dl.dbeta.dbeta <- as.matrix(dl.dbeta.dbeta[, j = lapply(.SD, mean), by = .(nbeta_rep2)])[, -1]
+   
+    # Derivative of gradient of alpha with respect to beta
+    H.alpha.beta <- -eta*H.beta
+    Hstar.alpha.beta <- -eta*Hstar.beta
     
-    ### Second derivative of log-likelihood with respect to beta
-    dl.dbeta <- cbind(t(dl.dalpha.dbeta), t(dl.deta.dbeta), t(dl.dtheta.dbeta), dl.dbeta.dbeta)
+    dl.dalpha.dbeta <- -(colMeans(as.matrix(Hstar.alpha.beta/(1+theta*Hstar)-
+                                               theta*Hstar.alpha*Hstar.beta/(1+theta*Hstar)^2-
+                                               (1+theta*d)*(H.alpha.beta/(1+theta*H)-
+                                                theta*H.alpha*H.beta/(1+theta*H)^2))))
+    dl.dalpha <- cbind(dl.dalpha, t(dl.dalpha.dbeta))
     
-    hessian <- rbind(dl.dalpha, dl.deta, dl.dtheta, dl.dbeta)
+    # Derivative of gradient of eta with respect to beta
+    dl.deta.dbeta <- -t(colMeans(as.matrix(Hstar.eta.beta/(1+theta*Hstar)-
+                                             theta*Hstar.eta*Hstar.beta/(1+theta*Hstar)^2-
+                                             (1+theta*d)*(H.eta.beta/(1+theta*H)-
+                                                            theta*H.eta*H.beta/(1+theta*H)^2))))
+    dl.deta <- cbind(dl.deta, dl.deta.dbeta)
+    
+    # Derivative of gradient of theta with respect to beta
+    dl.dtheta.dbeta <- -t(colMeans(as.matrix(theta*(-Hstar.beta*Hstar/(1+theta*Hstar)^2+ H.beta*H/(1+theta*H)^2
+                                                    -d*(H.beta/(1+theta*H)-theta*H.beta*H/(1+theta*H)^2)))))
+    dl.dtheta <- cbind(dl.dtheta, dl.dtheta.dbeta)
+    
+    ### Derivative of gradient of beta with respect to all parameters
+    dl.dbeta <- rbind(dl.dalpha.dbeta, dl.deta.dbeta, dl.dtheta.dbeta, dl.dbeta.dbeta)
+    
+    hessian <- cbind(t(dl.dalpha), t(dl.deta), t(dl.dtheta), dl.dbeta)
     #colnames(hessian) <- c("logalpha","logeta","logtheta","beta")
     #rownames(hessian) <- colnames(hessian)
     
@@ -308,10 +307,16 @@ frailty_model <- function(formula, data, logp, clusterid){
   }
   
   ########################################
-  fit=optim(par=logp,fn=like,gr=gradientfunc,method="BFGS",hessian=FALSE)
+  ### Optimize the likelihood function
+  fit <- optim(par=logp, fn=like, gr=gradientfunc, method="BFGS", hessian=FALSE)
   par <- fit$par
+  
+  ### Get the score function
   score <- gradientfunc(par, score=TRUE)
+  
+  ### Get the hessian
   hessian <- hessianfunc(par)
+  
   #### Output ####
   out <- c(list(par = par, score = score, hessian = hessian))
   class(out) <- "frailty_model"
@@ -319,13 +324,11 @@ frailty_model <- function(formula, data, logp, clusterid){
   
 }
 
-
 print("true")
 print(logp)
 print("with grad")
 estimates<-frailty_model(formula, data, logp, clusterid="id")
 estimates
-
 
 
 
