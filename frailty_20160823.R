@@ -52,9 +52,12 @@ formula=Surv(tstar, t, delta) ~ x + z + z*x
 clusterid<-"id"
 
 frailty <- function(formula, data, logp, clusterid){
+  call <- match.call()
   ## Defining input arguments
   X <- as.matrix(model.matrix(formula, data)[, -1])
   clusterid <- data[, clusterid]
+  n <- nrow(X)
+  ncluster <- length(unique(clusterid))
   nbeta <- length(attr(terms(formula), "term.labels"))
   npar <- 3 + length(attr(terms(formula), "term.labels"))
   if(missing(logp)) logp <- c(rep(0, npar))
@@ -318,7 +321,9 @@ frailty <- function(formula, data, logp, clusterid){
   hessian <- hessianfunc(par)
   
   #### Output ####
-  out <- c(list(X=X, fit = fit, par = par, score = score, hessian = hessian))
+  out <- c(list(X=X, fit = fit, par = par, score = score, hessian = hessian, call = call,
+                formula = formula, data = data, logp = logp, clusterid =clusterid,
+                ncluster = ncluster, n = n))
   class(out) <- "frailty"
   return(out)
   
@@ -331,61 +336,22 @@ estimates
 
 
 print.frailty<-function(x, ...){
-  cat("\nEstimated parameters:", "\n")
+  cat("Call:", "\n")
+  print.default(x$call)
+  cat("\nEstimated parameters in the Gamma-Weibull frailty model:", "\n")
   cat("\n")
   table.est <- t(as.matrix(x$par))
-  variables <- data.frame(x$X)
-  alpha <- "\U003B1" 
-  eta <- "\U003B7"
-  theta <- "\U003B8"
-  colnames(table.est) <- c("Alpha", "Eta", "Theta", names(variables))
-  r <- rep("", , length(x$AF.est))
+  colnames(table.est) <- c("log(\U003B1)", "log(\U003B7)", "log(\U003B8)", names(as.data.frame(x$X)))
+  r <- rep("", , 1)
   rownames(table.est) <- c(r)
-  modelcall <- as.character(x$fit$call[1])
-  if(modelcall == "coxph") {
-    table.est <- cbind(x$times, table.est)
-    colnames(table.est) <- c("Time", "AF", Std.Error)
-    print.default(table.est)
+  print.default(table.est)
+  cat("\n")
+  cat("Number of observations:", x$n, "\n")
+  cat("Number of clusters:", x$ncluster)
   }
-  else {
-    print.default(table.est)
-  }
-}
 
-summary.AF <- function(object, digits = max(3L, getOption("digits") - 3L),
-                       confidence.level, CI.transform, ...){
-  if(missing(confidence.level)) confidence.level <- 0.95
-  if(missing(CI.transform)) CI.transform <- "untransformed"
-  se <- sqrt(object$AF.var)
-  zvalue <- object$AF.est / sqrt(object$AF.var)
-  pvalue <- 2 * pnorm( - abs(zvalue))
-  confidence.interval <- CI(AF = object$AF.est, Std.Error = sqrt(object$AF.var),
-                            confidence.level = confidence.level,
-                            CI.transform = CI.transform)
-  colnames(confidence.interval) <- c("Lower limit", "Upper limit")
+summary.frailty <- function(object, digits = max(3L, getOption("digits") - 3L), ...){
   
-  if(!object$n.cluster == 0) Std.Error <- "Robust SE"
-  else Std.Error <- "Std.Error"
-  AF <- cbind(object$AF.est, se, zvalue, pvalue)
-  colnames(AF) <- c("AF estimate", Std.Error, "z value", "Pr(>|z|)")
-  
-  modelcall <- as.character(object$fit$call[1])
-  if(modelcall == "glm") method = "Logistic regression"
-  if(modelcall == "coxph") method = "Cox Proportional Hazards model"
-  if(modelcall == "gee") method = "Conditional logistic regression"
-  
-  fit <- summary(object$fit)
-  
-  if(modelcall == "coxph"){
-    ans <- list(AF = AF, times = object$times,
-                CI.transform = CI.transform, confidence.level = confidence.level,
-                confidence.interval = confidence.interval, n.obs = object$n,
-                n.cases = object$n.cases, n.cluster = object$n.cluster,
-                modelcall = modelcall, call = object$call, method = method, formula = object$formula,
-                exposure = object$exposure, outcome = object$outcome, fit = fit,
-                sandwich = object$sandwich)
-  }
-  else{
     ans <- list(AF = AF, CI.transform = CI.transform, confidence.level = confidence.level,
                 confidence.interval = confidence.interval, n.obs = object$n, n.cases = object$n.cases,
                 n.cluster = object$n.cluster, modelcall = modelcall, call = object$call, method = method,
