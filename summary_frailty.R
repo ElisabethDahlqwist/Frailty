@@ -1,3 +1,4 @@
+### Function for confidence intervals
 CI <- function(Est, Std.Error, confidence.level, CI.transform){
   if(CI.transform == "untransformed"){
     lower <- Est - abs(qnorm((1 - confidence.level) / 2)) * Std.Error
@@ -16,13 +17,11 @@ CI <- function(Est, Std.Error, confidence.level, CI.transform){
   return(CI)
 }
 
-
+### Print function
 print.frailty<-function(x, ...){
-  cat("\nEstimated parameters in the Gamma-Weibull frailty model", "\n")
-  cat("\n")
   cat("Call:", "\n")
   print.default(x$call)
-  cat("\nCoefficients:")
+  cat("\nEstimated parameters in the Gamma-Weibull frailty model:", "\n")
   cat("\n")
   table.est <- as.matrix(cbind(x$par, x$se))
   rownames(table.est) <- c("log(\U003B1)", "log(\U003B7)", "log(\U003B8)", names(as.data.frame(x$X)))
@@ -33,13 +32,13 @@ print.frailty<-function(x, ...){
   cat("Number of clusters:", x$ncluster)
 }
 
+### Summary function
 summary.frailty <- function(object, CI.transform, confidence.level, digits = max(3L, getOption("digits") - 3L), ...){
   if(missing(confidence.level)) confidence.level <- 0.95
   if(missing(CI.transform)) CI.transform <- "untransformed"
   
-  ## Inference
-  ### Standard errors
-  se <- sqrt(-diag(solve(object$hessian)))
+  ### Inference
+  se <- object$se
   zvalue <- object$par / se
   pvalue <- 2 * pnorm( - abs(zvalue))
   confidence.interval <- CI(Est = object$par, Std.Error = se,
@@ -49,15 +48,10 @@ summary.frailty <- function(object, CI.transform, confidence.level, digits = max
   
   ## Score functions for each individual
   colnames(object$score) <- c("log(\U003B1)", "log(\U003B7)", "log(\U003B8)", names(as.data.frame(object$X)))
-  cat("Score", "\n")
-  print.default(object$score)
-  cat("\n")
   
   ## Hessian
   colnames(object$hessian) <- c("log(\U003B1)", "log(\U003B7)", "log(\U003B8)", names(as.data.frame(object$X)))
   rownames(object$hessian) <- c("log(\U003B1)", "log(\U003B7)", "log(\U003B8)", names(as.data.frame(object$X)))
-  cat("Hessian", "\n")
-  print.default(object$hessian)
   
   ans <- list(par = object$par, se = se, zvalue = zvalue, pvalue = pvalue, score = object$score, X = object$X,
               hessian = object$hessian, call = object$call,
@@ -69,16 +63,16 @@ summary.frailty <- function(object, CI.transform, confidence.level, digits = max
   return(ans)
 }
 
-
+### Print summary function
 print.summary.frailty <- function(x, digits = max(3L, getOption("digits") - 3L),
                              ...){
   ## Function call
   cat("Call:", "\n")
   print.default(x$call)
-  cat("\nEstimated parameters in the Gamma-Weibull frailty model:", x$CI.transform, CI.text,  "Wald CI:", "\n")
-  cat("\n")
   level <- x$confidence.level * 100
   CI.text <- paste0(as.character(level),"%")
+  cat("\nEstimated parameters in the Gamma-Weibull frailty model and", x$CI.transform, CI.text,  "Wald CI:", "\n")
+  cat("\n")
   table.est <- cbind(x$par, x$se, x$zvalue, x$pvalue, x$confidence.interval)
   rownames(table.est) <- c("log(\U003B1)", "log(\U003B7)", "log(\U003B8)", names(as.data.frame(x$X)))
   colnames(table.est) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "Lower limit", "Upper limit")
